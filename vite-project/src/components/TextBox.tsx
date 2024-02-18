@@ -1,0 +1,85 @@
+// TextBox.tsx
+import React, { useState, FormEvent } from 'react';
+import { useMessages } from '../contexts/MessagesContext';
+import '../App.css';
+
+interface TextBoxProps {
+    selectedOption: string; // Prop to hold the selected value from the dropdown
+}
+
+const TextBoxComponent: React.FC<TextBoxProps> = ({ selectedOption }) => {
+    const [text, setText] = useState<string>('');
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const { addMessage } = useMessages();
+    const [context, setContext] = useState<string>('reqs');
+    const handleSelection = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        setContext(event.target.value);
+    };
+
+
+
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setIsSubmitting(true);
+        try {
+            const response = await fetch('/api/submit-text', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text, context }), // Use selectedOption as the context
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const responseData = await response.json();
+            setText(''); // Clear input field
+            // Add user message with context
+            addMessage({
+                datetime: new Date().toISOString(),
+                role: 'You',
+                message: text,
+                context: selectedOption
+            });
+            // Optionally handle bot response
+            if (responseData.response) {
+                addMessage({
+                    datetime: new Date().toISOString(),
+                    role: 'AdviseGPT',
+                    message: responseData.response.message,
+                    context: 'spec'
+                });
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        } finally {
+            setIsSubmitting(false); // Re-enable the button
+        }
+    };
+
+    return (
+        <div className="center-container">
+            <form onSubmit={handleSubmit} className="center-form">
+                <br/>
+                <input
+                    type="text"
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    className="center-input"
+                />
+                <button type="submit" className = 'submit-button' disabled={isSubmitting}>Submit</button>
+                {isSubmitting && <div className="spinner"></div>} {/* Conditionally render the spinner */}
+                <br/>
+                {/* <select onChange={handleSelection}>
+                <option value="reqs">Major Requirements for CSE</option>
+                <option value="spec">Specialization Option</option>
+            </select> */}
+            </form>
+            
+        </div>
+    );
+};
+
+export default TextBoxComponent;
